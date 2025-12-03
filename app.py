@@ -12,7 +12,6 @@ import time
 st.set_page_config(page_title="Jag Lär Mig", page_icon="📖", layout="wide")
 
 # --- 2. STARTA MINNET (Session State) ---
-# Vi initierar minnet direkt för att undvika fel
 if "subjects" not in st.session_state:
     st.session_state.subjects = {"Allmänt": {"material": "", "history": []}}
 
@@ -22,7 +21,7 @@ if "current_subject" not in st.session_state:
 if "flashcards" not in st.session_state:
     st.session_state.flashcards = {}
 
-# --- 3. BAKGRUNDSBILDER ---
+# --- 3. BAKGRUNDSBILDER & DESIGN ---
 BACKGROUND_MAP = {
     "NO": "url('https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=2500&auto=format&fit=crop')",
     "Geografi": "url('https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2500&auto=format&fit=crop')",
@@ -36,6 +35,7 @@ def set_background(subject_name):
     st.markdown(
         f"""
         <style>
+        /* Bakgrundsbild */
         .stApp {{
             background-image: {bg_url};
             background-size: cover;
@@ -43,21 +43,46 @@ def set_background(subject_name):
             background-attachment: fixed;
             transition: background-image 0.5s ease-in-out;
         }}
-        /* Gör texten mer läsbar mot bakgrunden med en halvgenomskinlig ruta */
+        
+        /* Mörkare ruta bakom texten för läsbarhet */
         .main .block-container {{
-            background-color: rgba(0, 0, 0, 0.6);
+            background-color: rgba(0, 0, 0, 0.75); /* 75% svart */
             padding: 2rem;
-            border-radius: 10px;
+            border-radius: 15px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
         }}
-        h1, h2, h3, p, div, span {{
+
+        /* Textfärger - Enbart rubriker och paragrafer blir vita */
+        h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {{
             color: white !important;
+        }}
+
+        /* Fixa knapparna så de syns! */
+        .stButton > button {{
+            background-color: #ff4b4b !important; /* Röd färg */
+            color: white !important; /* Vit text */
+            border: none;
+            font-weight: bold;
+        }}
+        .stButton > button:hover {{
+            background-color: #ff2b2b !important; /* Mörkare röd vid hover */
+        }}
+        
+        /* Fixa textrutor (Input fields) */
+        .stTextInput > div > div > input {{
+            color: black !important;
+            background-color: white !important;
+        }}
+        .stTextArea > div > div > textarea {{
+            color: black !important;
+            background-color: white !important;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
 
-# Kör bakgrundsfunktionen
+# Kör designfunktionen
 set_background(st.session_state.current_subject)
 
 # --- 4. FUNKTIONER ---
@@ -102,7 +127,7 @@ def get_gemini_response(prompt, context, api_key):
     
     try:
         genai.configure(api_key=api_key)
-        # Använder gemini-pro för stabilitet om flash strular
+        # Använder gemini-pro för stabilitet
         model = genai.GenerativeModel('gemini-1.5-flash') 
         
         full_prompt = (
@@ -127,11 +152,10 @@ def get_gemini_response(prompt, context, api_key):
 with st.sidebar:
     st.title("📖 Jag Lär Mig")
     
-    # Hämta nyckel från Secrets
     api_key = st.secrets.get("GEMINI_API_KEY")
     
     if api_key:
-        st.success(f"✅ Nyckel laddad! (Start: {api_key[:4]}...)")
+        st.success(f"✅ Nyckel OK! ({api_key[:4]}...)")
     else:
         st.error("❌ Ingen nyckel i Secrets!")
     
@@ -139,27 +163,122 @@ with st.sidebar:
     
     st.subheader("Välj Ämne")
     
-    # Hämta lista på ämnen
     subject_list = list(st.session_state.subjects.keys())
     
-    # Hitta index för nuvarande ämne
     try:
         current_index = subject_list.index(st.session_state.current_subject)
     except ValueError:
         current_index = 0
         st.session_state.current_subject = subject_list[0]
 
-    # Väljaren
     selected_sub = st.selectbox("Ämne:", subject_list, index=current_index)
     
-    # Byt bakgrund om ämnet ändras
     if selected_sub != st.session_state.current_subject:
         st.session_state.current_subject = selected_sub
         st.rerun()
 
-    # Skapa nytt ämne
     new_sub = st.text_input("Nytt ämne (t.ex. Historia):")
     if st.button("Skapa Mapp") and new_sub:
         if new_sub not in st.session_state.subjects:
             st.session_state.subjects[new_sub] = {"material": "", "history": []}
             st.session_state.current_subject = new_sub
+            st.success(f"Skapade {new_sub}!")
+            st.rerun()
+
+    st.divider()
+    
+    st.subheader(f"Ladda upp till {st.session_state.current_subject}")
+    uploaded_files = st.file_uploader("Filer (PDF, PPTX)", accept_multiple_files=True)
+    
+    if st.button("Spara Filer"):
+        current_data = st.session_state.subjects[st.session_state.current_subject]["material"]
+        for file in uploaded_files:
+            if file.name.endswith(".pdf"):
+                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pdf(file)
+            elif file.name.endswith(".pptx"):
+                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pptx(file)
+        
+        st.session_state.subjects[st.session_state.current_subject]["material"] = current_data
+        st.success(f"Sparade filer!")
+        st.rerun()
+
+# --- 6. HUVUDVY ---
+
+st.header(f"Studerar: {st.session_state.current_subject}")
+
+active_subject_data = st.session_state.subjects[st.session_state.current_subject]
+material_text = active_subject_data["material"]
+
+if not material_text:
+    st.info("📂 Mappen är tom. Ladda upp filer i menyn till vänster för att se verktygen!")
+else:
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 Läs & Redigera", "🧠 Förhör Mig", "🃏 Flashcards", "🎧 Lyssna"])
+
+    # FLIK 1
+    with tab1:
+        st.caption("Ditt material:")
+        edited_text = st.text_area("Text", material_text, height=400)
+        
+        col_save, col_split = st.columns(2)
+        if col_save.button("Spara ändringar"):
+            st.session_state.subjects[st.session_state.current_subject]["material"] = edited_text
+            st.success("Sparat!")
+            st.rerun()
+            
+        if col_split.button("✨ Dela upp i kapitel"):
+            with st.spinner("AI arbetar..."):
+                res = get_gemini_response("Dela upp texten i tydliga kapitel med rubriker.", edited_text, api_key)
+                st.markdown(res)
+
+    # FLIK 2
+    with tab2:
+        col1, col2 = st.columns(2)
+        if col1.button("📝 Skapa Prov"):
+            with st.spinner("Skapar prov..."):
+                res = get_gemini_response("Skapa ett prov med 3 frågor och facit.", material_text, api_key)
+                st.markdown(res)
+        
+        if col2.button("📋 Sammanfatta"):
+            with st.spinner("Sammanfattar..."):
+                res = get_gemini_response("Sammanfatta det viktigaste.", material_text, api_key)
+                st.markdown(res)
+
+        st.divider()
+        user_msg = st.chat_input("Fråga din AI-lärare...")
+        if user_msg:
+            st.chat_message("user").write(user_msg)
+            with st.spinner("Tänker..."):
+                ai_msg = get_gemini_response(user_msg, material_text, api_key)
+                st.chat_message("assistant").write(ai_msg)
+
+    # FLIK 3
+    with tab3:
+        st.subheader("Plugga begrepp")
+        if st.button("Generera nya kort"):
+            with st.spinner("Skapar kort..."):
+                prompt = "Skapa 3 flashcards i JSON-format: [{'question': '...', 'answer': '...'}, ...]"
+                json_res = get_gemini_response(prompt, material_text, api_key)
+                try:
+                    clean_json = json_res.replace("```json", "").replace("```", "").strip()
+                    cards = json.loads(clean_json)
+                    st.session_state.flashcards[st.session_state.current_subject] = cards
+                    st.success("Kort skapade!")
+                except:
+                    st.warning("Kunde inte skapa kort just nu.")
+                    st.write(json_res)
+
+        cards = st.session_state.flashcards.get(st.session_state.current_subject)
+        if cards:
+            for i, card in enumerate(cards):
+                with st.expander(f"Kort {i+1}: {card['question']}"):
+                    st.write(f"**Svar:** {card['answer']}")
+
+    # FLIK 4
+    with tab4:
+        st.subheader("Ljudbok")
+        txt_speech = st.text_area("Text att läsa:", value=material_text[:2000], height=150)
+        if st.button("▶️ Spela upp"):
+            with st.spinner("Genererar ljud..."):
+                audio = generate_speech_simple(txt_speech)
+                if audio:
+                    st.audio(audio)
