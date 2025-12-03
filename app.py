@@ -128,7 +128,7 @@ def get_gemini_response(prompt, context, api_key):
     try:
         genai.configure(api_key=api_key)
         # Använder gemini-pro för stabilitet
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction) 
         
         full_prompt = (
             "Du är en pedagogisk lärare i appen 'Jag Lär Mig'. "
