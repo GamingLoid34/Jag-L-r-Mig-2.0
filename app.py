@@ -10,7 +10,14 @@ import time # För att tidstämpla framsteg
 
 # --- INSTÄLLNINGAR ---
 st.set_page_config(page_title="Jag Lär Mig", page_icon="📖", layout="wide")
-
+# --- SÄKER START AV MINNET ---
+if "subjects" not in st.session_state:
+    st.session_state.subjects = {"Allmänt": {"material": "", "history": []}}
+if "current_subject" not in st.session_state:
+    st.session_state.current_subject = "Allmänt"
+if "flashcards" not in st.session_state:
+    st.session_state.flashcards = {}
+# -----------------------------
 # --- MAPPING: ÄMNEN TILL BAKGRUNDSBILDER (som du ville ha) ---
 BACKGROUND_MAP = {
     "NO": "url('https://images.unsplash.com/photo-1582719478253-6ce7ebdf11c8?q=80&w=2500&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
