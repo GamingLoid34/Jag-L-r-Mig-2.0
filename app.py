@@ -130,7 +130,18 @@ if not api_key:
         
 with st.sidebar:
     st.title("📖 Jag Lär Mig")
+    with st.sidebar:
+    st.title("📖 Jag Lär Mig")
     
+    # --- DIAGNOS KOD (TA BORT SEN) ---
+    if "GEMINI_API_KEY" in st.secrets:
+        nyckel = st.secrets["GEMINI_API_KEY"]
+        st.info(f"🔍 Debug: Appen ser nyckeln: '{nyckel[:5]}...' (Längd: {len(nyckel)})")
+    else:
+        st.error("Debug: Appen hittar INGEN nyckel i Secrets!")
+    # ---------------------------------
+
+    # ... resten av koden ...
     if api_key:
         st.success("🔑 Nyckel laddad från Secrets!")
 
