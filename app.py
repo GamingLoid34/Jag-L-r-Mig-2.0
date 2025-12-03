@@ -11,13 +11,12 @@ import time
 # --- 1. INSTÄLLNINGAR (Måste vara först) ---
 st.set_page_config(page_title="Jag Lär Mig", page_icon="📖", layout="wide")
 
-# --- 2. STARTA MINNET (Session State) - FIXAR FELET ---
-# Vi måste garantera att dessa variabler finns innan vi använder dem
+# --- 2. STARTA MINNET (Session State) ---
+# Vi initierar minnet direkt för att undvika fel
 if "subjects" not in st.session_state:
     st.session_state.subjects = {"Allmänt": {"material": "", "history": []}}
 
 if "current_subject" not in st.session_state:
-    # Sätter standardvärdet till det första ämnet i listan
     st.session_state.current_subject = list(st.session_state.subjects.keys())[0]
 
 if "flashcards" not in st.session_state:
@@ -25,15 +24,14 @@ if "flashcards" not in st.session_state:
 
 # --- 3. BAKGRUNDSBILDER ---
 BACKGROUND_MAP = {
-    "NO": "url('https://images.unsplash.com/photo-1582719478253-6ce7ebdf11c8?q=80&w=2500&auto=format&fit=crop')",
-    "Geografi": "url('https://images.unsplash.com/photo-1541334311090-344070a7b055?q=80&w=2500&auto=format&fit=crop')",
-    "Idrott": "url('https://images.unsplash.com/photo-1517590806450-482a2af16719?q=80&w=2500&auto=format&fit=crop')",
-    "Matte": "url('https://images.unsplash.com/photo-1596495689108-bc31c626456f?q=80&w=2500&auto=format&fit=crop')",
-    "Allmänt": "url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2500&auto=format&fit=crop')",
+    "NO": "url('https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=2500&auto=format&fit=crop')",
+    "Geografi": "url('https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2500&auto=format&fit=crop')",
+    "Idrott": "url('https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=2500&auto=format&fit=crop')",
+    "Matte": "url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=2500&auto=format&fit=crop')",
+    "Allmänt": "url('https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=2500&auto=format&fit=crop')",
 }
 
 def set_background(subject_name):
-    # Hämtar URL, om ämnet inte finns i listan används "Allmänt"
     bg_url = BACKGROUND_MAP.get(subject_name, BACKGROUND_MAP['Allmänt'])
     st.markdown(
         f"""
@@ -45,16 +43,21 @@ def set_background(subject_name):
             background-attachment: fixed;
             transition: background-image 0.5s ease-in-out;
         }}
-        /* Gör texten mer läsbar mot bakgrunden */
-        .stMarkdown, .stHeader, .stTitle, p, h1, h2, h3 {{
-            text-shadow: 0px 0px 5px rgba(0,0,0,0.5);
+        /* Gör texten mer läsbar mot bakgrunden med en halvgenomskinlig ruta */
+        .main .block-container {{
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 2rem;
+            border-radius: 10px;
+        }}
+        h1, h2, h3, p, div, span {{
+            color: white !important;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
 
-# Kör bakgrundsfunktionen direkt
+# Kör bakgrundsfunktionen
 set_background(st.session_state.current_subject)
 
 # --- 4. FUNKTIONER ---
@@ -94,14 +97,12 @@ def generate_speech_simple(text):
         return None
 
 def get_gemini_response(prompt, context, api_key):
-    # Kontrollera nyckeln
     if not api_key: 
         return "⚠️ Ingen API-nyckel hittades i Secrets."
     
     try:
         genai.configure(api_key=api_key)
-        
-        # Vi använder 'gemini-1.5-flash' (eller 'gemini-pro' om flash strular för ditt konto)
+        # Använder gemini-pro för stabilitet om flash strular
         model = genai.GenerativeModel('gemini-1.5-flash') 
         
         full_prompt = (
@@ -110,20 +111,18 @@ def get_gemini_response(prompt, context, api_key):
             f"MATERIAL:\n{context}\n\n"
             f"UPPGIFT: {prompt}"
         )
-        
         response = model.generate_content(full_prompt)
         return response.text
         
     except Exception as e:
-        # Fånga fel för att hjälpa till med felsökning
         if "API_KEY_INVALID" in str(e) or "400" in str(e):
-            return "❌ API-nyckeln avvisades av Google. Kontrollera Secrets!"
+            return "❌ API-nyckeln avvisades. Kontrollera Secrets!"
         elif "NotFound" in str(e):
-            return "❌ Modellen hittades inte. Försök byta till 'gemini-pro' i koden."
+            return "❌ Modellen hittades inte. Försök byta modell i koden."
         else:
-            return f"Ett tekniskt fel uppstod: {str(e)}"
+            return f"Ett fel uppstod: {str(e)}"
 
-# --- 5. SIDOPANEL & NAVIGERING ---
+# --- 5. SIDOPANEL ---
 
 with st.sidebar:
     st.title("📖 Jag Lär Mig")
@@ -131,13 +130,10 @@ with st.sidebar:
     # Hämta nyckel från Secrets
     api_key = st.secrets.get("GEMINI_API_KEY")
     
-    # --- DIAGNOS: VISA OM NYCKEL FINNS ---
     if api_key:
-        # HÄR VAR FELET: F-strängen måste vara hel
-        st.success(f"✅ Nyckel laddad! (Börjar på: {api_key[:4]}...)")
+        st.success(f"✅ Nyckel laddad! (Start: {api_key[:4]}...)")
     else:
         st.error("❌ Ingen nyckel i Secrets!")
-        st.info("Lägg till GEMINI_API_KEY i dina Streamlit Secrets.")
     
     st.divider()
     
@@ -146,7 +142,7 @@ with st.sidebar:
     # Hämta lista på ämnen
     subject_list = list(st.session_state.subjects.keys())
     
-    # Se till att index är giltigt
+    # Hitta index för nuvarande ämne
     try:
         current_index = subject_list.index(st.session_state.current_subject)
     except ValueError:
@@ -156,7 +152,7 @@ with st.sidebar:
     # Väljaren
     selected_sub = st.selectbox("Ämne:", subject_list, index=current_index)
     
-    # Om användaren byter ämne, uppdatera state och ladda om för att byta bakgrund
+    # Byt bakgrund om ämnet ändras
     if selected_sub != st.session_state.current_subject:
         st.session_state.current_subject = selected_sub
         st.rerun()
@@ -167,22 +163,3 @@ with st.sidebar:
         if new_sub not in st.session_state.subjects:
             st.session_state.subjects[new_sub] = {"material": "", "history": []}
             st.session_state.current_subject = new_sub
-            st.success(f"Skapade {new_sub}!")
-            st.rerun()
-
-    st.divider()
-    
-    # Uppladdning
-    st.subheader(f"Ladda upp till {st.session_state.current_subject}")
-    uploaded_files = st.file_uploader("Filer (PDF, PPTX)", accept_multiple_files=True)
-    
-    if st.button("Spara Filer"):
-        current_data = st.session_state.subjects[st.session_state.current_subject]["material"]
-        for file in uploaded_files:
-            if file.name.endswith(".pdf"):
-                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pdf(file)
-            elif file.name.endswith(".pptx"):
-                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pptx(file)
-        
-        st.session_state.subjects[st.session_state.current_subject]["material"] = current_data
-        st.success("Material sparat!")
