@@ -133,4 +133,56 @@ with st.sidebar:
     
     # --- DIAGNOS: VISA OM NYCKEL FINNS ---
     if api_key:
-        st.success(f"✅ Nyckel laddad! (B
+        # HÄR VAR FELET: F-strängen måste vara hel
+        st.success(f"✅ Nyckel laddad! (Börjar på: {api_key[:4]}...)")
+    else:
+        st.error("❌ Ingen nyckel i Secrets!")
+        st.info("Lägg till GEMINI_API_KEY i dina Streamlit Secrets.")
+    
+    st.divider()
+    
+    st.subheader("Välj Ämne")
+    
+    # Hämta lista på ämnen
+    subject_list = list(st.session_state.subjects.keys())
+    
+    # Se till att index är giltigt
+    try:
+        current_index = subject_list.index(st.session_state.current_subject)
+    except ValueError:
+        current_index = 0
+        st.session_state.current_subject = subject_list[0]
+
+    # Väljaren
+    selected_sub = st.selectbox("Ämne:", subject_list, index=current_index)
+    
+    # Om användaren byter ämne, uppdatera state och ladda om för att byta bakgrund
+    if selected_sub != st.session_state.current_subject:
+        st.session_state.current_subject = selected_sub
+        st.rerun()
+
+    # Skapa nytt ämne
+    new_sub = st.text_input("Nytt ämne (t.ex. Historia):")
+    if st.button("Skapa Mapp") and new_sub:
+        if new_sub not in st.session_state.subjects:
+            st.session_state.subjects[new_sub] = {"material": "", "history": []}
+            st.session_state.current_subject = new_sub
+            st.success(f"Skapade {new_sub}!")
+            st.rerun()
+
+    st.divider()
+    
+    # Uppladdning
+    st.subheader(f"Ladda upp till {st.session_state.current_subject}")
+    uploaded_files = st.file_uploader("Filer (PDF, PPTX)", accept_multiple_files=True)
+    
+    if st.button("Spara Filer"):
+        current_data = st.session_state.subjects[st.session_state.current_subject]["material"]
+        for file in uploaded_files:
+            if file.name.endswith(".pdf"):
+                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pdf(file)
+            elif file.name.endswith(".pptx"):
+                current_data += f"\n--- {file.name} ---\n" + extract_text_from_pptx(file)
+        
+        st.session_state.subjects[st.session_state.current_subject]["material"] = current_data
+        st.success("Material sparat!")
