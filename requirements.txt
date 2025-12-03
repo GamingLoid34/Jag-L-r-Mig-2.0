@@ -1,5 +1,5 @@
 streamlit
 google-generativeai
-pypdf2
+PyPDF2
 python-pptx
 gTTS
